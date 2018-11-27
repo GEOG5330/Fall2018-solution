@@ -1,0 +1,44 @@
+
+---
+title: "Week 10: Homework"
+output: github_document
+---
+
+# Question \#1
+
+The R package 'spdep' includes a shape file 'columbus.shp' which is a dataset of
+neighborhood-level information on crime, mean home value, mean income, and other
+variables for 49 neighborhoods in Columbus, OH, during 1980. Based on what we
+have learned on the spatial analysis of areal data, please finish the following
+R codes.
+
+```{r homework, eval=T, echo=T}
+rm(list=ls())
+
+library(spdep)
+library(maptools)
+library(RColorBrewer)
+
+
+columbus.poly <- readShapePoly(system.file("etc/shapes/columbus.shp", package="spdep")[1])
+
+
+# Based on the shape file, please build neighorhood using Rook adjacency rule (hint: poly2nb).
+columbus.nb <- poly2nb(columbus.poly,queen = FALSE)
+
+# Convert the neigbohood specification to a adjacent weight matrix (hint:nb2listw)
+columbus.listw <- nb2listw(columbus.nb, style = 'B')
+
+## Please run Moran test for the crime values in the dataset (columbus.poly$CRIME), and explain the output (hint:moran.test).
+moran.test(columbus.poly$CRIME,columbus.listw)
+```
+
+The Moran's I test result shows pretty low p-value, meaning the hypothesis of no spatial autocorrelation is rejected. In other word, the distribution of crimes is highly clustered through the columbus region.
+
+```{r}
+## Please run the SAR model using CRIME as the dependent variables and house values (HOVAL) and income (INC) as your explanatory variables, and explain the outputs (hint:spautolm). 
+columbus.sar <- spautolm(CRIME ~ HOVAL+INC, data = columbus.poly, listw = columbus.listw)
+summary(columbus.sar)
+```
+
+The summary of the SAR model displays very significant regression coefficients, with their p-values all less than 0.01. So the regression model performs very well for the data. Besides, the lambda for the error term is still very significant, which means the spatial impact from neighbors is very significant.

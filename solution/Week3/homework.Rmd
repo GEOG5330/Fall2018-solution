@@ -1,0 +1,105 @@
+--
+title: "Homework: Use R as GIS"
+output: github_document
+---
+Based on the accident dataset ('accident.dbf') we used last week, please
+write R scripts to finish the following two tasks:
+
+1. Map the locations of accidents based on the lat/long and use the United
+   States state boundary as the background (the boundary shapefile is in
+   the folder 'Data/US'). The result map should have the basic cartographic
+   elements (e.g., map scale, compass). Please note the `accident.dbf` can
+   be loaded by the following codes, and there are invalid values for
+   lat/long column that you probably need to clean up before use (see the
+   example code in the homework \#2).  
+
+```{r load, eva=T, echo=T, results='hide'}
+#***rm(list=ls()) remove all environment variables
+x <- c("sp", "rgdal", "rgeos", "maptools", "classInt", "RColorBrewer", "GISTools", "maps", "raster", 'ggmap')
+#install.packages(x) # warning: this may take a number of minutes
+lapply(x, library, character.only = TRUE) #load the required packages
+
+library(foreign)
+accident=read.dbf('Data/accident.dbf')
+
+# Step 1: Clean up the data first
+accident <- subset(accident, LONGITUD!=999.99990 &  LONGITUD!=888.88880 & LONGITUD!=777.77770 & HOUR<30)
+
+
+# Step 2: Map 
+fatality <- accident$FATALS
+
+nclr<- 8
+fatalclr<-brewer.pal(nclr, "Reds")
+class<-classIntervals(fatality, nclr, style="fixed")
+clocode<-findColours(class, fatalclr)
+
+usmap <- readOGR("./Data/US","US_Bndry_Jursidictional_TIGER") #read polygon shapefile
+#usmap <- readShapePoly("Data/US/US_Bndry_Jursidictional_TIGER.shp")
+
+plot(usmap,xlim=c(-180,-60),axes=TRUE, col=alpha("gray70", 0.3)) #plot US shapefile
+
+#add title, scalebar, north arrow, and legend
+#coordinates(accident) <- c("LONGITUDE","LATITUDE")
+#points(accident, pch=19, col=clocode, cex=0.08)
+points(accident$LONGITUD, accident$LATITUDE, pch=19, col=clocode, cex=0.08) #add fatality locations on top of Lubbock block shapefile
+title(main="Fatality Distribution of United States") 
+
+legend("topright", title = "Occurance", legend=unique(fatality), fill =attr(clocode, "palette"), cex=0.5, bty="n")
+north.arrow(xb=-85, yb=65, len=1, lab="N")
+```
+
+2. In the folder 'Data/Texas' contains the boundary of Texas counties.
+   Using the `accident.dbf' data, please count the number of accidents for
+   each county and make a county map based on the value of count you
+   calculated. 
+
+```{r texas, eva=T, echo=T}
+#install.packages("climdiv")
+library(plyr)
+library(foreign)
+library(ggplot2)
+accident=read.dbf('Data/accident.dbf')
+state <- accident[which(accident$STATE == 48),]
+county.fatal <- aggregate(state$FATALS,by = list(state$COUNTY), FUN = sum)
+names(county.fatal) <- c('ID','Count')
+
+#generate color palette
+n <- 8
+county.col <- brewer.pal(n, "Reds")
+county.class <- classIntervals(county.fatal$Count,n,style = "quantile")
+colcode<-findColours(county.class, county.col)
+
+txmap <- readOGR("./Data/texas","Tx_CntyBndry_Jurisdictional_STRATMAP")
+county.id <- txmap@data$FIPS
+
+county.col <- rep('#FFFFFF',length(county.id))
+
+for (i in 1:length(county.fatal$ID)){
+  ind <- which(county.id == county.fatal$ID[i])
+  county.col[ind] <- colcode[i]
+}
+
+# Use the function  *over()*; see the example codes for the case of bears and parks
+# in the lecture
+
+plot(txmap,axes=TRUE, col=county.col)
+title(main="Distribution of Accidents in Texas") 
+legend("topright", title = "Occurance sum", legend=c("0",names(attr(colcode, "table"))), fill =c("#FFFFFF",attr(colcode, "palette")), cex=0.5, bty="n")
+north.arrow(xb=-110, yb=34, len=0.5, lab="N")
+
+
+# txmap@data$col <- as.factor(county.col)
+# txmap@data$id <- rownames(txmap@data)
+# txmap.fort <- fortify(txmap, region = 'id')
+# txmap.df <- join(txmap.fort,txmap@data,by='id')
+# 
+# ggplot(data = txmap.df, aes(x = long, y = lat, fill=id, group = group)) +
+#   geom_polygon() +
+#   geom_path(color="white") +
+#   coord_equal() 
+#     geom_polygon(colour = "black") +
+#     coord_equal() +
+#     theme()
+```
+

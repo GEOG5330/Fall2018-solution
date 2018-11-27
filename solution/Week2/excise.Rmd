@@ -1,0 +1,194 @@
+---
+title: "Week 2: R Exercise and Homework"
+output: github_document
+---
+
+# Analysis Routine
+
+On August 29, DJ Patil, the Chief Data Scientist in the White House Office
+of Science and Technology Policy, and Mark Rosekind, the Administrator of
+the National Highway Traffic Safety Administration (NHTSA) announced the
+release of a data set documenting all traffic fatalities occurring in the
+United States in 2015. In this excise, we tried to use the command we have
+learned to analyze this dataset.
+
+## Analysis Routine: Data Import
+
+- To get started with this exercise, direct your R session to a dedicated
+workshop directory and download into this directory the following sample
+tables. Then import the files into Excel and save them as tab delimited
+text files.
+
+    - [accident](./accident.csv)
+    - [Description of the fields in the dataset](ftp://ftp.nhtsa.dot.gov/FARS/FARS-DOC/Analytical User Guide/USERGUIDE-2015.pdf)
+
+- Import the tables into R
+
+```{r import_data1, eval=T}
+accidents <- read.delim(file="accident.csv", header=T, sep=",") 
+head(accidents)
+names(accidents)
+``` 
+- Preprocess the data
+
+```{r import_data2, eval=T}
+#Only include data with correct long/lat coordinates and valid hours
+accidents <- subset(accidents, LONGITUD!=999.99990 &  LONGITUD!=888.88880 & LONGITUD!=777.77770 & HOUR<30)
+``` 
+
+- Aggregate the number of accidents by month 
+
+```{r import_data3, eval=T}
+hist(accidents$MONTH)
+``` 
+
+- Aggregate the number of accidents by hour 
+
+```{r import_data4, eval=T}
+hist(accidents$HOUR)
+``` 
+
+- Aggregate the number of persons by month
+
+```{r import_data5, eval=T}
+a<-aggregate(PERSONS~MONTH, accidents,sum)
+plot(a$MONTH, a$PERSONS, type='o', col='blue')
+``` 
+
+- Aggregate the number of persons by hour
+
+```{r import_data6, eval=T}
+a<-aggregate(PERSONS~HOUR, accidents,sum)
+plot(a$HOUR,a$PERSONS, type='o', col='blue' )
+``` 
+
+# Homework
+
+Based on the `accident` dataset, please write a function (see the
+							  [Rbascis.md](./Rbasics.md)),
+say named `GetStateFatality(stateName, display)`, to return the monthly
+fatalites of at state `stateName` and if `display=TRUE` also to plot the
+fatalities by months. The following is the code for each U.S. states and
+Puerto Rico:
+
+01 Alabama 31 Nebraska
+02 Alaska 32 Nevada
+04 Arizona 33 New Hampshire
+05 Arkansas 34 New Jersey
+06 California 35 New Mexico
+08 Colorado 36 New York
+09 Connecticut 37 North Carolina
+10 Delaware 38 North Dakota
+11 District of Columbia 39 Ohio
+12 Florida 40 Oklahoma
+13 Georgia 41 Oregon
+15 Hawaii 42 Pennsylvania
+16 Idaho 43 Puerto Rico
+17 Illinois 44 Rhode Island
+18 Indiana 45 South Carolina
+19 Iowa 46 South Dakota
+20 Kansas 47 Tennessee
+21 Kentucky 48 Texas
+22 Louisiana 49 Utah
+23 Maine 50 Vermont
+24 Maryland 52 Virgin Islands 
+25 Massachusetts 51 Virginia
+26 Michigan 53 Washington
+27 Minnesota 54 West Virginia
+28 Mississippi 55 Wisconsin
+29 Missouri 56 Wyoming
+30 Montana
+
+```{r homework, eval=T}
+## Now finish the following R function, starting from directly reading the csv
+## file (accidents.csv). 
+#install.packages('ggplot2')
+library(ggplot2)
+pal <- c("#A6CEE3","#2B7FB8","#97CC91","#55B145","#B29C71","#ED5454","#EE6441","#FDA746","#F08C3A","#B89CCB","#9068be","#f8df31")
+month <- c('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
+
+GetStateFatality <- function (stateName, display=FALSE){
+  if(is.character(stateName)==FALSE){
+    paste('    >>>State name should be a string.')
+    return()
+  }
+  if(is.logical(display)==FALSE){
+    paste('    >>>The second variable should be longical, that is TRUE or FALSE.')
+    return()
+  }
+  
+  state.str <- '01 Alabama 31 Nebraska
+02 Alaska 32 Nevada
+04 Arizona 33 New Hampshire
+05 Arkansas 34 New Jersey
+06 California 35 New Mexico
+08 Colorado 36 New York
+09 Connecticut 37 North Carolina
+10 Delaware 38 North Dakota
+11 District of Columbia 39 Ohio
+12 Florida 40 Oklahoma
+13 Georgia 41 Oregon
+15 Hawaii 42 Pennsylvania
+16 Idaho 43 Puerto Rico
+17 Illinois 44 Rhode Island
+18 Indiana 45 South Carolina
+19 Iowa 46 South Dakota
+20 Kansas 47 Tennessee
+21 Kentucky 48 Texas
+22 Louisiana 49 Utah
+23 Maine 50 Vermont
+24 Maryland 52 Virgin Islands 
+25 Massachusetts 51 Virginia
+26 Michigan 53 Washington
+27 Minnesota 54 West Virginia
+28 Mississippi 55 Wisconsin
+29 Missouri 56 Wyoming
+30 Montana'
+  
+  #read state string into a pool maxtix 
+  str.sub <- gsub('[\n]',' ',state.str)
+  str.num <- unlist(strsplit(str.sub,'[[:alpha:][:space:]]+'))
+  str.name <- unlist(strsplit(str.sub,'[[:digit:][:space:]]{3,4}'))[-1]
+  unlist(strsplit(str.sub,'[[:digit:][:space:]\t]{3,4}'))
+  #str.num
+  #length(str.name)
+  str.pool <- data.frame(Number=as.numeric(str.num), Name=str.name, stringsAsFactors = FALSE)
+
+  #str.split1 <- unlist(strsplit(state.str,'\n'))
+
+  #match state by name, get state number
+  state.ind <- 9999
+  state.ind <- which(tolower(str.pool$Name) == tolower(stateName))
+  if(length(state.ind)==0){
+    paste('    >>>No matching state, please check the input state name.')
+    return()
+  }
+  state.num <- str.pool$Number[state.ind]
+
+  #extract data of matched state
+  state <- accidents[which(accidents$STATE == state.num),]
+  state.monthorder <- state[order(state$MONTH),]
+  monthly.fatal <- aggregate(state.monthorder$FATALS,by = list(state.monthorder$MONTH), FUN = sum)
+  names(monthly.fatal) <- c('Month','Fatality')
+  monthly.fatal$Month <- factor(month, levels = month, ordered = T)
+  print(monthly.fatal)
+
+  if(display == TRUE){
+    ggplot(data = monthly.fatal,aes(x=1:length(Month),y=Fatality,fill=Month))+
+    geom_bar(stat="identity",position=position_dodge())+
+    ggtitle(paste('Month Fatality of ',str.pool$Name[state.ind]))+
+    ylab('Fatality')+
+    scale_fill_manual(name='Month',values = pal)+
+    scale_x_continuous(breaks=1:length(monthly.fatal$Month),labels=month)+
+    theme(plot.title = element_text(hjust = 0.5),axis.title.x = element_blank())
+  }
+}
+
+#### Test your function
+GetStateFatality ('Texas', display=TRUE)
+
+``` 
+
+
+
+

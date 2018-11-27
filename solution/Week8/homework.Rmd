@@ -1,0 +1,67 @@
+---
+title: "Week 8 Homework"
+output: github_document
+---
+
+The `trees.txt` file in the included `Data` folder includes presence locations
+of Joshua trees in the southern California, Nevada and Arizona. Please add your
+lines codes in the following snippets of the codes to address the question I put
+in the comments:
+
+
+```{r hw7, eval=T, echo=T}
+# plot the trees 
+library(sp)
+library(maptools)
+library(maps)
+library(mapdata)
+library(spatstat)
+library(rgdal)
+locs = read.csv(file="Data/trees.txt", header=T, sep="\t")
+
+# First to look at the data 
+data(stateMapEnv)
+plot(c(-119, -112), c(33.0, 38), mar=par("mar"), xlab="longitude", ylab="latitude", xaxt="n", yaxt="n", type="n", main="Joshua tree presence data")
+
+map("state", xlim=c(-119, -112), ylim=c(33.0, 38), fill=T, col="cornsilk", add=T)
+points(locs$lngitude,locs$latitude)
+
+
+# change map projection of original lat/lon data.
+
+coordinates(locs)=c('lngitude', 'latitude')
+proj4string(locs) = CRS('+init=epsg:4326')
+
+projLocs<-spTransform(locs, CRS("+init=epsg:2163"))
+
+# Here, please add codes to generate the kernel density estimation map
+# of the trees.
+locs.ppp <- ppp(projLocs@coords[,1],projLocs@coords[,2],c(min(projLocs@coords[,1]),max(projLocs@coords[,1])),c(min(projLocs@coords[,2]),max(projLocs@coords[,2])))
+locs.den <- density(locs.ppp)
+plot(locs.den, main='density')
+plot(locs.ppp, add = TRUE, cex = 0.5, pch = 20)
+
+# Please repeat the above KDE codes using the following options of
+# `sigma` parameters and describe the difference: `sigma=10`,
+# `sigma=1000` and `sigma=10000`
+locs.den1 <- density(locs.ppp,sigma = 10)
+locs.den2 <- density(locs.ppp,sigma = 1000)
+locs.den3 <- density(locs.ppp,sigma = 10000)
+plot(locs.den1, main='density with sigma of 10')
+plot(locs.den2, main='density with sigma of 1000')
+plot(locs.den3, main='density with sigma of 10000')
+```
+
+In the plots for sigma of 10 and 1000, there are some spikes over the region, while in plot with sigma of 1000, these spikes get smoothened, resulting in a vague density map. 
+
+```{r}
+# Please add codes to generate the sample curves of K functions and
+# run test to verify whether the data are clustered or not.
+
+library(Hmisc)
+Ecdf(pairdist(locs.ppp), main='CDF curve')
+plot(Kest(locs.ppp, correction='none'))
+
+```
+
+With the plot result shown above, the data is clustered.
